@@ -6,17 +6,7 @@ from typing import overload, Any
 
 
 # TODO: idk how to make the plugin name abstraction properly, change it later
-PLUGIN_NAME: str | None = None
-
-
-def init_plugin_tools(name: str):
-	global PLUGIN_NAME
-	PLUGIN_NAME = name
-
-	global bn_action_manager
-	bn_action_manager = ActionManager()
-
-	binaryninja.log.Logger(0, name)
+_PLUGIN_NAME: str | None = None
 
 
 class Action:
@@ -42,8 +32,8 @@ class Action:
 	logger: binaryninja.Logger | None = None
 
 	def __init__(self):
-		assert PLUGIN_NAME is not None, "PLUGIN_NAME must be set"
-		self.logger = binaryninja.log.Logger(0, f"{PLUGIN_NAME}.{self.name}")
+		assert _PLUGIN_NAME is not None, "PLUGIN_NAME must be set"
+		self.logger = binaryninja.log.Logger(0, f"{_PLUGIN_NAME}.{self.short_name}")
 
 	@property
 	def short_name(self):
@@ -145,7 +135,7 @@ class PyToolsPluginCommand(Action):
 	# fmt: off
 
 	def register(self):
-		register = self.type_to_handler[self.type]
+		register = self._type_to_handler[self.type]
 
 		if self.desired_hotkey:
 			self.logger.log_warn(
@@ -154,7 +144,7 @@ class PyToolsPluginCommand(Action):
 				)
 
 		register(
-			f"{PLUGIN_NAME}\\{self.display_name}",
+			f"{_PLUGIN_NAME}\\{self.display_name}",
 			self.description,
 			self.activate,
 			self.is_valid,
@@ -187,22 +177,20 @@ class PyToolsUIAction(Action):
 	# fmt: on
 
 	def register(self):
-		UIAction.registerAction(f"{PLUGIN_NAME}\\{self.display_name}", self.desired_hotkey)
+		UIAction.registerAction(f"{_PLUGIN_NAME}\\{self.display_name}", self.desired_hotkey)
 		UIActionHandler.globalActions().bindAction(
-			f"{PLUGIN_NAME}\\{self.display_name}",
+			f"{_PLUGIN_NAME}\\{self.display_name}",
 			UIAction(self.activate, self.is_valid),
 		)
 
 
 class ActionManager:
-	def __init__(self, plugin_name: str | None = None) -> None:
+	def __init__(self) -> None:
+		assert _PLUGIN_NAME is not None, "PLUGIN_NAME must be set"
+
 		self.__actions: list[Action] = list()
-
-		if not plugin_name:
-			plugin_name = PLUGIN_NAME
-
 		self.logger: binaryninja.Logger = binaryninja.log.Logger(
-			0, f"{plugin_name}.{self.__class__.__name__}"
+			0, f"{_PLUGIN_NAME}.{self.__class__.__name__}"
 		)
 
 	def register(self, action: Action) -> None:
@@ -222,4 +210,16 @@ class ActionManager:
 		raise NotImplementedError
 
 
-bn_action_manager: ActionManager | None = None
+def init_plugin_tools(name: str):
+	global _PLUGIN_NAME
+	_PLUGIN_NAME = name
+
+	global _bn_action_manager
+	_bn_action_manager = ActionManager()
+
+	binaryninja.log.Logger(0, name)
+
+
+def get_action_manager() -> ActionManager:
+	global _bn_action_manager
+	return _bn_action_manager

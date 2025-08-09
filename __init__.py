@@ -4,8 +4,9 @@ from .actions import (
 	PyToolsUIAction,
 	ActionManager,
 	init_plugin_tools,
-	bn_action_manager,
+	get_action_manager,
 )
+
 
 # fmt: off
 __all__ = [
@@ -16,6 +17,6 @@ __all__ = [
 	"PyToolsUIAction",
 
 	"ActionManager",
-	"bn_action_manager",
+	"get_action_manager",
 ]
 # fmt: on
