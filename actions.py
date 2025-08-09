@@ -139,9 +139,9 @@ class PyToolsPluginCommand(Action):
 
 		if self.desired_hotkey:
 			self.logger.log_warn(
-					f"Desired hotkey ({self.desired_hotkey}) for {self.short_name} is set, "
-					"but setting default hotkey currently unavailable for PluginCommands, ignored"
-				)
+				f"Desired hotkey ({self.desired_hotkey}) is set, but setting "
+				"default hotkey currently unavailable for PluginCommands, ignored"
+			)
 
 		register(
 			f"{_PLUGIN_NAME}\\{self.display_name}",
