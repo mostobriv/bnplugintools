@@ -1,6 +1,6 @@
 import binaryninja
 from binaryninja import PluginCommand, PluginCommandType
-from binaryninjaui import UIAction, UIActionContext, UIActionHandler  # type: ignore
+from binaryninjaui import Menu, UIAction, UIActionContext, UIActionHandler  # type: ignore
 
 from typing import overload, Any
 
@@ -139,9 +139,9 @@ class PyToolsPluginCommand(Action):
 
 		if self.desired_hotkey:
 			self.logger.log_warn(
-				f"Desired hotkey ({self.desired_hotkey}) is set, but setting "
-				"default hotkey currently unavailable for PluginCommands, ignored"
-			)
+					f"Desired hotkey ({self.desired_hotkey}) for {self.short_name} is set, "
+					"but setting default hotkey currently unavailable for PluginCommands, ignored"
+				)
 
 		register(
 			f"{_PLUGIN_NAME}\\{self.display_name}",
@@ -182,6 +182,7 @@ class PyToolsUIAction(Action):
 			f"{_PLUGIN_NAME}\\{self.display_name}",
 			UIAction(self.activate, self.is_valid),
 		)
+		Menu.mainMenu("Plugins").addAction(f"{_PLUGIN_NAME}\\{self.display_name}", "Plugins")
 
 
 class ActionManager:
