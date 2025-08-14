@@ -176,6 +176,28 @@ class PyToolsUIAction(Action):
 		raise NotImplementedError
 	# fmt: on
 
+	@staticmethod
+	def add_to_context_menu(is_valid_handler):
+		import functools
+
+		if is_valid_handler.__name__ != "is_valid":
+			raise ValueError(
+				f"add_context_menu decorator can be applied only to is_valid handlers, applied to {is_valid_handler}"
+			)
+
+		@functools.wraps(is_valid_handler)
+		def wrapper(self, context):
+			if not is_valid_handler(self, context):
+				return False
+
+			view = context.view
+			context_menu = view.contextMenu()
+			context_menu.addAction("Plugins", f"{_PLUGIN_NAME}\\{self.display_name}", "Plugins")
+
+			return True
+
+		return wrapper
+
 	def register(self):
 		UIAction.registerAction(f"{_PLUGIN_NAME}\\{self.display_name}", self.desired_hotkey)
 		UIActionHandler.globalActions().bindAction(
