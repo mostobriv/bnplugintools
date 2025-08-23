@@ -2,7 +2,8 @@ import binaryninja
 from binaryninja import PluginCommand, PluginCommandType
 from binaryninjaui import Menu, UIAction, UIActionContext, UIActionHandler  # type: ignore
 
-from typing import overload, Any
+from typing import overload, Any, Callable
+import functools
 
 
 # TODO: idk how to make the plugin name abstraction properly, change it later
@@ -38,6 +39,11 @@ class Action:
 	@property
 	def short_name(self):
 		return self.__class__.__name__
+
+	@property
+	# TODO: think about prettier name for this property
+	def plugin_path(self):
+		return f"{_PLUGIN_NAME}\\{self.display_name}"
 
 	def register(self):
 		raise NotImplementedError
@@ -115,19 +121,19 @@ class PyToolsPluginCommand(Action):
 	def is_valid(self, bv: binaryninja.BinaryView, address: int) -> bool: ...
 	@overload
 	def is_valid(self, bv: binaryninja.BinaryView, function: binaryninja.Function) -> bool: ...
-	@overload 
+	@overload
 	def is_valid(self, bv: binaryninja.BinaryView, llil: binaryninja.LowLevelILFunction) -> bool: ...
-	@overload 
+	@overload
 	def is_valid(self, bv: binaryninja.BinaryView, llil_instr: binaryninja.LowLevelILInstruction) -> bool: ...
-	@overload 
+	@overload
 	def is_valid(self, bv: binaryninja.BinaryView, mlil: binaryninja.MediumLevelILFunction) -> bool: ...
-	@overload 
+	@overload
 	def is_valid(self, bv: binaryninja.BinaryView, mlil_instr: binaryninja.MediumLevelILInstruction) -> bool: ...
-	@overload 
+	@overload
 	def is_valid(self, bv: binaryninja.BinaryView, hlil: binaryninja.HighLevelILFunction) -> bool: ...
-	@overload 
+	@overload
 	def is_valid(self, bv: binaryninja.BinaryView, hlil_instr: binaryninja.HighLevelILInstruction) -> bool: ...
-	@overload 
+	@overload
 	def is_valid(self, bv: binaryninja.BinaryView, begin: int, end: int) -> bool: ...
 
 	def is_valid(self, *args, **kwargs) -> bool:
@@ -144,7 +150,7 @@ class PyToolsPluginCommand(Action):
 				)
 
 		register(
-			f"{_PLUGIN_NAME}\\{self.display_name}",
+			self.plugin_path,
 			self.description,
 			self.activate,
 			self.is_valid,
@@ -177,39 +183,55 @@ class PyToolsUIAction(Action):
 	# fmt: on
 
 	@staticmethod
-	def add_to_context_menu(is_valid_handler):
+	def do_basic_context_checks(handler: Callable):
+		"""
+		Checks if `UIActionContext` object is not None
+		and none of the fields [context, view, binaryView] is None as well.
+		"""
+
 		import functools
 
-		if is_valid_handler.__name__ != "is_valid":
-			raise ValueError(
-				f"add_context_menu decorator can be applied only to is_valid handlers, applied to {is_valid_handler}"
-			)
-
-		@functools.wraps(is_valid_handler)
-		def wrapper(self, context):
-			if not is_valid_handler(self, context):
+		@functools.wraps(handler)
+		def wrapper(self, context: UIActionContext) -> bool:
+			if (context is None) or (context.context is None) or (context.view is None):
 				return False
 
-			view = context.view
-			context_menu = view.contextMenu()
-			context_menu.addAction("Plugins", f"{_PLUGIN_NAME}\\{self.display_name}", "Plugins")
+			if context.binaryView is None:
+				return False
 
-			return True
+			return handler(self, context)
 
 		return wrapper
 
 	def register(self):
-		UIAction.registerAction(f"{_PLUGIN_NAME}\\{self.display_name}", self.desired_hotkey)
+		def add_to_context_menu(is_valid: Callable, menu_path: str):
+			@functools.wraps(is_valid)
+			def wrapper(context: UIActionContext):
+				if not is_valid(context):
+					return False
+				view = context.view
+				context_menu = view.contextMenu()
+				context_menu.addAction("Plugins", menu_path, "Plugins")
+				return True
+
+			return wrapper
+
+		UIAction.registerAction(self.plugin_path, self.desired_hotkey)
 		UIActionHandler.globalActions().bindAction(
-			f"{_PLUGIN_NAME}\\{self.display_name}",
-			UIAction(self.activate, self.is_valid),
+			self.plugin_path,
+			UIAction(
+				self.activate,
+				add_to_context_menu(self.is_valid, self.plugin_path),
+			),
 		)
-		Menu.mainMenu("Plugins").addAction(f"{_PLUGIN_NAME}\\{self.display_name}", "Plugins")
+		Menu.mainMenu("Plugins").addAction(self.plugin_path, "Plugins")
 
 
 class ActionManager:
 	def __init__(self) -> None:
-		assert _PLUGIN_NAME is not None, "PLUGIN_NAME must be set"
+		assert _PLUGIN_NAME is not None, (
+			"_PLUGIN_NAME isn't set, forgot to call init_plugin_tools(...)?"
+		)
 
 		self.__actions: list[Action] = list()
 		self.logger: binaryninja.Logger = binaryninja.log.Logger(
